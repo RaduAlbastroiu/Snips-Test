@@ -16,6 +16,7 @@ import {
 import { generateId } from "@designcombo/timeline";
 import { Button } from "@/components/ui/button";
 import useUploadStore from "../store/use-upload-store";
+import useStore from "../store/use-store";
 import ModalUpload from "@/components/modal-upload";
 import { API_ENDPOINTS } from "@/constants/api";
 
@@ -30,8 +31,12 @@ export const Uploads = () => {
       episodes: Record<string, { start: number; end: number }>;
     }>
   >([]);
-  const [selectedSelectionId, setSelectedSelectionId] = useState<string | null>(
-    null
+  const selectedSelectionId = useStore((state) => state.selectedSelectionId);
+  const setSelectedSelectionId = useStore(
+    (state) => state.setSelectedSelectionId
+  );
+  const setSelectionIntervals = useStore(
+    (state) => state.setSelectionIntervals
   );
   const [areSelectionsVisible, setAreSelectionsVisible] = useState(false);
   const [isLoadingSelections, setIsLoadingSelections] = useState(false);
@@ -204,11 +209,50 @@ export const Uploads = () => {
                         className={`p-3 cursor-pointer transition-colors ${
                           isSelected ? "border-primary" : ""
                         }`}
-                        onClick={() =>
-                          setSelectedSelectionId((current) =>
-                            current === selection.id ? null : selection.id
-                          )
-                        }
+                        onClick={() => {
+                          const isCurrentlySelected =
+                            selectedSelectionId === selection.id;
+                          const nextSelection = isCurrentlySelected
+                            ? null
+                            : selection.id;
+
+                          setSelectedSelectionId(nextSelection);
+
+                          if (nextSelection === null) {
+                            setSelectionIntervals([]);
+                            return;
+                          }
+
+                          const intervals = Object.entries(selection.episodes)
+                            .map(([episodeName, range]) => {
+                              const start = Number(range.start);
+                              const end = Number(range.end);
+                              if (
+                                Number.isFinite(start) &&
+                                Number.isFinite(end)
+                              ) {
+                                return {
+                                  id: `${selection.id}-${episodeName}`,
+                                  startMs: start * 1000,
+                                  endMs: end * 1000,
+                                  label: selection.name,
+                                };
+                              }
+                              return null;
+                            })
+                            .filter(
+                              (
+                                interval
+                              ): interval is {
+                                id: string;
+                                startMs: number;
+                                endMs: number;
+                                label: string;
+                              } => interval !== null
+                            );
+
+                          setSelectionIntervals(intervals);
+                        }}
                       >
                         <div className="text-sm font-semibold">
                           {selection.name}

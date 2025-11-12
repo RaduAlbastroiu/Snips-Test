@@ -23,8 +23,10 @@ import {
   LinealAudioBars,
   RadialAudioBars,
   WaveAudioBars,
-  HillAudioBars
+  HillAudioBars,
+  SelectionItem
 } from "./items";
+import SelectionTimelineOverlay from "./selection-overlay";
 import StateManager, { REPLACE_MEDIA } from "@designcombo/state";
 import {
   TIMELINE_OFFSET_CANVAS_LEFT,
@@ -47,7 +49,8 @@ CanvasTimeline.registerItems({
   LinealAudioBars,
   RadialAudioBars,
   WaveAudioBars,
-  HillAudioBars
+  HillAudioBars,
+  SelectionItem
 });
 
 const EMPTY_SIZE = { width: 0, height: 0 };
@@ -155,6 +158,7 @@ const Timeline = ({ stateManager }: { stateManager: StateManager }) => {
         caption: 32,
         text: 32,
         audio: 36,
+        selection: 28,
         customTrack: 40,
         customTrack2: 40,
         linealAudioBars: 40,
@@ -167,6 +171,7 @@ const Timeline = ({ stateManager }: { stateManager: StateManager }) => {
         "image",
         "audio",
         "video",
+        "selection",
         "caption",
         "helper",
         "track",
@@ -327,6 +332,7 @@ const Timeline = ({ stateManager }: { stateManager: StateManager }) => {
             className="absolute top-0 w-full"
           >
             <canvas id="designcombo-timeline-canvas" ref={canvasElRef} />
+            <SelectionTimelineOverlay scrollLeft={scrollLeft} />
           </div>
           <ScrollArea.Root
             type="always"
