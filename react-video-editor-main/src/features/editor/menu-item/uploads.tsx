@@ -30,6 +30,9 @@ export const Uploads = () => {
       episodes: Record<string, { start: number; end: number }>;
     }>
   >([]);
+  const [selectedSelectionId, setSelectedSelectionId] = useState<string | null>(
+    null
+  );
   const [areSelectionsVisible, setAreSelectionsVisible] = useState(false);
   const [isLoadingSelections, setIsLoadingSelections] = useState(false);
   const [selectionsError, setSelectionsError] = useState<string | null>(null);
@@ -193,31 +196,44 @@ export const Uploads = () => {
             ) : (
               <ScrollArea className="rounded-md border">
                 <div className="flex flex-col gap-2 p-3">
-                  {selections.map((selection) => (
-                    <Card key={selection.id} className="p-3">
-                      <div className="text-sm font-semibold">
-                        {selection.name}
-                      </div>
-                      {Object.keys(selection.episodes).length > 0 ? (
-                        <div className="mt-2 space-y-1">
-                          {Object.entries(selection.episodes).map(
-                            ([episodeName, range]) => (
-                              <div
-                                key={episodeName}
-                                className="text-xs text-muted-foreground"
-                              >
-                                {episodeName}: {range.start} - {range.end}
-                              </div>
-                            )
-                          )}
+                  {selections.map((selection) => {
+                    const isSelected = selection.id === selectedSelectionId;
+                    return (
+                      <Card
+                        key={selection.id}
+                        className={`p-3 cursor-pointer transition-colors ${
+                          isSelected ? "border-primary" : ""
+                        }`}
+                        onClick={() =>
+                          setSelectedSelectionId((current) =>
+                            current === selection.id ? null : selection.id
+                          )
+                        }
+                      >
+                        <div className="text-sm font-semibold">
+                          {selection.name}
                         </div>
-                      ) : (
-                        <div className="mt-2 text-xs text-muted-foreground">
-                          No episodes in this selection.
-                        </div>
-                      )}
-                    </Card>
-                  ))}
+                        {Object.keys(selection.episodes).length > 0 ? (
+                          <div className="mt-2 space-y-1">
+                            {Object.entries(selection.episodes).map(
+                              ([episodeName, range]) => (
+                                <div
+                                  key={episodeName}
+                                  className="text-xs text-muted-foreground"
+                                >
+                                  {episodeName}: {range.start} - {range.end}
+                                </div>
+                              )
+                            )}
+                          </div>
+                        ) : (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            No episodes in this selection.
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })}
                 </div>
               </ScrollArea>
             ))}
