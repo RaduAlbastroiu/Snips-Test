@@ -12,6 +12,7 @@ export const configApp = () => {
 
   app.use(compression());
   app.use(cors({ origin: true }));
+  app.use(express.json());
   app.use(morgan("dev"));
 
   app.use("/", apiRouter);
