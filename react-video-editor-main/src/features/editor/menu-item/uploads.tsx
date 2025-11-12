@@ -11,7 +11,7 @@ import {
   Image as ImageIcon,
   Video as VideoIcon,
   Loader2,
-  UploadIcon
+  UploadIcon,
 } from "lucide-react";
 import { generateId } from "@designcombo/timeline";
 import { Button } from "@/components/ui/button";
@@ -52,17 +52,17 @@ export const Uploads = () => {
       payload: {
         id: generateId(),
         details: {
-          src: srcVideo
+          src: srcVideo,
         },
         metadata: {
           previewUrl:
-            "https://cdn.designcombo.dev/caption_previews/static_preset1.webp"
-        }
+            "https://cdn.designcombo.dev/caption_previews/static_preset1.webp",
+        },
       },
       options: {
         resourceId: "main",
-        scaleMode: "fit"
-      }
+        scaleMode: "fit",
+      },
     });
   };
 
@@ -75,14 +75,14 @@ export const Uploads = () => {
         type: "image",
         display: {
           from: 0,
-          to: 5000
+          to: 5000,
         },
         details: {
-          src: srcImage
+          src: srcImage,
         },
-        metadata: {}
+        metadata: {},
       },
-      options: {}
+      options: {},
     });
   };
 
@@ -93,11 +93,11 @@ export const Uploads = () => {
         id: generateId(),
         type: "audio",
         details: {
-          src: srcAudio
+          src: srcAudio,
         },
-        metadata: {}
+        metadata: {},
       },
-      options: {}
+      options: {},
     });
   };
 
@@ -114,7 +114,7 @@ export const Uploads = () => {
 
     try {
       const response = await fetch(API_ENDPOINTS.SELECTIONS, {
-        cache: "no-store"
+        cache: "no-store",
       });
 
       if (!response.ok) {
@@ -148,6 +148,11 @@ export const Uploads = () => {
         <UploadIcon className="w-4 h-4" />
         <span className="ml-2">Upload</span>
       </Button>
+    </div>
+  );
+
+  const ViewSelections = () => (
+    <div className="flex items-center justify-center px-4 gap-3 mt-3">
       <Button
         variant="outline"
         className="w-full"
@@ -165,6 +170,7 @@ export const Uploads = () => {
       </div>
       <ModalUpload />
       <UploadPrompt />
+      <ViewSelections />
 
       {areSelectionsVisible && (
         <div className="px-4 py-3">
@@ -178,40 +184,43 @@ export const Uploads = () => {
           {selectionsError && (
             <div className="text-xs text-destructive">{selectionsError}</div>
           )}
-          {!isLoadingSelections && !selectionsError && selections.length === 0 && (
-            <div className="text-xs text-muted-foreground">
-              No selections found.
-            </div>
-          )}
-          {!isLoadingSelections && !selectionsError && selections.length > 0 && (
-            <ScrollArea className="max-h-48 rounded-md border">
-              <div className="flex flex-col gap-2 p-3">
-                {selections.map((selection) => (
-                  <Card key={selection.id} className="p-3">
-                    <div className="text-sm font-semibold">{selection.name}</div>
-                    {Object.keys(selection.episodes).length > 0 ? (
-                      <div className="mt-2 space-y-1">
-                        {Object.entries(selection.episodes).map(
-                          ([episodeName, range]) => (
-                            <div
-                              key={episodeName}
-                              className="text-xs text-muted-foreground"
-                            >
-                              {episodeName}: {range.start} - {range.end}
-                            </div>
-                          )
-                        )}
-                      </div>
-                    ) : (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        No episodes in this selection.
-                      </div>
-                    )}
-                  </Card>
-                ))}
+          {!isLoadingSelections &&
+            !selectionsError &&
+            (selections.length === 0 ? (
+              <div className="text-xs text-muted-foreground">
+                No selections found.
               </div>
-            </ScrollArea>
-          )}
+            ) : (
+              <ScrollArea className="rounded-md border">
+                <div className="flex flex-col gap-2 p-3">
+                  {selections.map((selection) => (
+                    <Card key={selection.id} className="p-3">
+                      <div className="text-sm font-semibold">
+                        {selection.name}
+                      </div>
+                      {Object.keys(selection.episodes).length > 0 ? (
+                        <div className="mt-2 space-y-1">
+                          {Object.entries(selection.episodes).map(
+                            ([episodeName, range]) => (
+                              <div
+                                key={episodeName}
+                                className="text-xs text-muted-foreground"
+                              >
+                                {episodeName}: {range.start} - {range.end}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      ) : (
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          No episodes in this selection.
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
+              </ScrollArea>
+            ))}
         </div>
       )}
 
