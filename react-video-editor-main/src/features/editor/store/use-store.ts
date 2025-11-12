@@ -13,7 +13,7 @@ import { Moveable } from "@interactify/toolkit";
 import { PlayerRef } from "@remotion/player";
 import { create } from "zustand";
 
-interface SelectionInterval {
+export interface SelectionInterval {
   id: string;
   startMs: number;
   endMs: number;
@@ -53,7 +53,11 @@ interface ITimelineStore {
   viewTimeline: boolean;
   setViewTimeline: (viewTimeline: boolean) => void;
   selectionIntervals: SelectionInterval[];
-  setSelectionIntervals: (intervals: SelectionInterval[]) => void;
+  setSelectionIntervals: (
+    updater:
+      | SelectionInterval[]
+      | ((intervals: SelectionInterval[]) => SelectionInterval[])
+  ) => void;
   selectedSelectionId: string | null;
   setSelectedSelectionId: (id: string | null) => void;
 }
@@ -119,7 +123,13 @@ const useStore = create<ITimelineStore>((set) => ({
   setPlayerRef: (playerRef: React.RefObject<PlayerRef> | null) =>
     set({ playerRef }),
   setSceneMoveableRef: (ref) => set({ sceneMoveableRef: ref }),
-  setSelectionIntervals: (intervals) => set({ selectionIntervals: intervals }),
+  setSelectionIntervals: (updater) =>
+    set((state) => ({
+      selectionIntervals:
+        typeof updater === "function"
+          ? updater(state.selectionIntervals)
+          : updater,
+    })),
   setSelectedSelectionId: (id) => set({ selectedSelectionId: id }),
 }));
 

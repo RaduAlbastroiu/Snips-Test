@@ -6,7 +6,6 @@ import SceneEmpty from "./empty";
 import Board from "./board";
 import useZoom from "../hooks/use-zoom";
 import { SceneInteractions } from "./interactions";
-import SelectionOverlay from "./selection-overlay";
 import { SceneRef } from "./scene.types";
 
 const Scene = forwardRef<
@@ -66,7 +65,6 @@ const Scene = forwardRef<
         />
         <Board size={size}>
           <Player />
-          <SelectionOverlay />
           <SceneInteractions
             stateManager={stateManager}
             containerRef={containerRef as React.RefObject<HTMLDivElement>}
