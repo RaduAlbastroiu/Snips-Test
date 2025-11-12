@@ -15,6 +15,7 @@ import { create } from "zustand";
 
 export interface SelectionInterval {
   id: string;
+  serverSelectionId?: string | null;
   startMs: number;
   endMs: number;
   label?: string;

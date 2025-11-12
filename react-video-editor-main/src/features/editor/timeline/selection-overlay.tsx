@@ -59,15 +59,15 @@ const SelectionTimelineOverlay = ({ scrollLeft }: { scrollLeft: number }) => {
             let nextEnd = interval.endMs;
 
             if (edge === "start") {
-              nextStart = Math.min(
-                Math.max(targetInterval.startMs + deltaMs, 0),
-                interval.endMs - minDuration
-              );
+            nextStart = Math.min(
+              Math.max(targetInterval.startMs + deltaMs, 0),
+              interval.endMs - minDuration
+            );
             } else {
-              nextEnd = Math.max(
-                Math.min(targetInterval.endMs + deltaMs, duration),
-                interval.startMs + minDuration
-              );
+            nextEnd = Math.max(
+              Math.min(targetInterval.endMs + deltaMs, duration),
+              nextStart + minDuration
+            );
             }
 
             return {
@@ -88,9 +88,13 @@ const SelectionTimelineOverlay = ({ scrollLeft }: { scrollLeft: number }) => {
 
       document.addEventListener("mousemove", onPointerMove);
       document.addEventListener("mouseup", onPointerUp);
-      document.addEventListener("touchmove", onPointerMove, {
-        passive: false
-      });
+      document.addEventListener(
+        "touchmove",
+        onPointerMove as unknown as EventListener,
+        {
+          passive: false
+        }
+      );
       document.addEventListener("touchend", onPointerUp);
     },
     [scale.zoom, setSelectionIntervals, duration]

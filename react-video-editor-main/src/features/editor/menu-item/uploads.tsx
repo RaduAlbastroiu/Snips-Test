@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ADD_AUDIO, ADD_IMAGE, ADD_VIDEO } from "@designcombo/state";
 import { dispatch } from "@designcombo/events";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,21 +16,22 @@ import {
 import { generateId } from "@designcombo/timeline";
 import { Button } from "@/components/ui/button";
 import useUploadStore from "../store/use-upload-store";
-import useStore from "../store/use-store";
+import useStore, { SelectionInterval } from "../store/use-store";
 import ModalUpload from "@/components/modal-upload";
 import { API_ENDPOINTS } from "@/constants/api";
+import { useUpdateSelection } from "../hooks/use-update-selection";
+
+type SelectionEntry = {
+  id: string;
+  name: string;
+  episodes: Record<string, { start: number; end: number }>;
+};
 
 export const Uploads = () => {
   const { setShowUploadModal, uploads, pendingUploads, activeUploads } =
     useUploadStore();
 
-  const [selections, setSelections] = useState<
-    Array<{
-      id: string;
-      name: string;
-      episodes: Record<string, { start: number; end: number }>;
-    }>
-  >([]);
+  const [selections, setSelections] = useState<SelectionEntry[]>([]);
   const selectedSelectionId = useStore((state) => state.selectedSelectionId);
   const setSelectedSelectionId = useStore(
     (state) => state.setSelectedSelectionId
@@ -38,9 +39,126 @@ export const Uploads = () => {
   const setSelectionIntervals = useStore(
     (state) => state.setSelectionIntervals
   );
+  const selectionIntervals = useStore((state) => state.selectionIntervals);
+  const { isUpdating, updateSelection } = useUpdateSelection();
   const [areSelectionsVisible, setAreSelectionsVisible] = useState(false);
   const [isLoadingSelections, setIsLoadingSelections] = useState(false);
   const [selectionsError, setSelectionsError] = useState<string | null>(null);
+  const [updatingSelectionId, setUpdatingSelectionId] = useState<string | null>(
+    null
+  );
+
+  const intervalLookup = useMemo(() => {
+    return selectionIntervals.reduce<Record<string, SelectionInterval>>(
+      (acc, interval) => {
+        acc[interval.id] = interval;
+        return acc;
+      },
+      {}
+    );
+  }, [selectionIntervals]);
+
+  const handleSelectionUpdate = useCallback(
+    async (selection: SelectionEntry, intervals: SelectionInterval[]) => {
+      const episodesPayload = intervals.reduce<
+        Record<string, { start: number; end: number }>
+      >((acc, interval) => {
+        if (interval.serverSelectionId !== selection.id) {
+          return acc;
+        }
+        const prefix = `${selection.id}-`;
+        if (!interval.id.startsWith(prefix)) {
+          return acc;
+        }
+        const episodeName = interval.id.slice(prefix.length);
+        const originalRange = selection.episodes[episodeName];
+        const originalStart = Math.round((originalRange?.start ?? 0) * 1000);
+        const originalEnd = Math.round((originalRange?.end ?? 0) * 1000);
+        const nextStartMs = Math.round(interval.startMs);
+        const nextEndMs = Math.round(interval.endMs);
+
+        if (nextStartMs === originalStart && nextEndMs === originalEnd) {
+          return acc;
+        }
+
+        acc[episodeName] = {
+          start: Math.round(interval.startMs / 1000),
+          end: Math.round(interval.endMs / 1000),
+        };
+        return acc;
+      }, {});
+
+      if (!Object.keys(episodesPayload).length) {
+        return;
+      }
+
+      setUpdatingSelectionId(selection.id);
+      try {
+        await updateSelection(selection, intervals, (updated) => {
+          const normalizedSelection: SelectionEntry = {
+            id: updated.id ?? (updated as any)._id ?? selection.id,
+            name: updated.name ?? selection.name,
+            episodes: Object.fromEntries(
+              Object.entries(updated.episodes ?? {}).map(
+                ([episodeName, range]) => {
+                  const startValue = Number((range as { start: number }).start);
+                  const endValue = Number((range as { end: number }).end);
+                  return [
+                    episodeName,
+                    {
+                      start: Number.isFinite(startValue) ? startValue : 0,
+                      end: Number.isFinite(endValue) ? endValue : 0,
+                    },
+                  ];
+                }
+              )
+            ),
+          };
+
+          setSelections((prev) =>
+            prev.map((entry) =>
+              entry.id === selection.id ? normalizedSelection : entry
+            )
+          );
+
+          const updatedIntervals = Object.entries(normalizedSelection.episodes)
+            .map(([episodeName, range]) => {
+              const start = Number(range.start);
+              const end = Number(range.end);
+              if (!Number.isFinite(start) || !Number.isFinite(end)) {
+                return null;
+              }
+              const interval: SelectionInterval = {
+                id: `${normalizedSelection.id}-${episodeName}`,
+                serverSelectionId: normalizedSelection.id,
+                startMs: Math.round(start * 1000),
+                endMs: Math.round(end * 1000),
+                label: normalizedSelection.name,
+              };
+              return interval;
+            })
+            .filter(
+              (interval): interval is SelectionInterval => interval !== null
+            );
+
+          setSelectionIntervals((prev) => {
+            const selectionServerId = normalizedSelection.id;
+            const others = prev.filter(
+              (interval) =>
+                interval.serverSelectionId !== selection.id &&
+                interval.serverSelectionId !== selectionServerId
+            );
+            return [...others, ...updatedIntervals];
+          });
+        });
+      } catch (error) {
+        console.error("Failed to update selection:", error);
+      } finally {
+        setUpdatingSelectionId(null);
+      }
+    },
+    [setSelectionIntervals, setSelections, updateSelection]
+  );
 
   // Group completed uploads by type
   const videos = uploads.filter(
@@ -231,24 +349,20 @@ export const Uploads = () => {
                                 Number.isFinite(start) &&
                                 Number.isFinite(end)
                               ) {
-                                return {
+                                const interval: SelectionInterval = {
                                   id: `${selection.id}-${episodeName}`,
+                                  serverSelectionId: selection.id,
                                   startMs: start * 1000,
                                   endMs: end * 1000,
                                   label: selection.name,
                                 };
+                                return interval;
                               }
                               return null;
                             })
                             .filter(
-                              (
-                                interval
-                              ): interval is {
-                                id: string;
-                                startMs: number;
-                                endMs: number;
-                                label: string;
-                              } => interval !== null
+                              (interval): interval is SelectionInterval =>
+                                interval !== null
                             );
 
                           setSelectionIntervals(intervals);
@@ -257,24 +371,87 @@ export const Uploads = () => {
                         <div className="text-sm font-semibold">
                           {selection.name}
                         </div>
-                        {Object.keys(selection.episodes).length > 0 ? (
-                          <div className="mt-2 space-y-1">
-                            {Object.entries(selection.episodes).map(
-                              ([episodeName, range]) => (
+                        {(() => {
+                          const selectionEditedIntervals =
+                            selectionIntervals.filter(
+                              (interval) =>
+                                interval.serverSelectionId === selection.id
+                            );
+
+                          const rows = Object.entries(selection.episodes).map(
+                            ([episodeName, range]) => {
+                              const intervalOverride =
+                                intervalLookup[
+                                  `${selection.id}-${episodeName}`
+                                ];
+                              const originalStart = range.start;
+                              const originalEnd = range.end;
+                              const displayStart = intervalOverride
+                                ? Math.round(intervalOverride.startMs / 1000)
+                                : originalStart;
+                              const displayEnd = intervalOverride
+                                ? Math.round(intervalOverride.endMs / 1000)
+                                : originalEnd;
+
+                              const showEdited =
+                                displayStart !== originalStart ||
+                                displayEnd !== originalEnd;
+
+                              return {
+                                episodeName,
+                                originalStart,
+                                originalEnd,
+                                displayStart,
+                                displayEnd,
+                                showEdited,
+                              };
+                            }
+                          );
+
+                          const hasEdits = rows.some((row) => row.showEdited);
+
+                          return (
+                            <div className="mt-2 space-y-1">
+                              {rows.map((row) => (
                                 <div
-                                  key={episodeName}
+                                  key={row.episodeName}
                                   className="text-xs text-muted-foreground"
                                 >
-                                  {episodeName}: {range.start} - {range.end}
+                                  {row.episodeName}: {row.originalStart} -{" "}
+                                  {row.originalEnd}
+                                  {row.showEdited && (
+                                    <span className="ml-2 text-emerald-500">
+                                      (edited: {row.displayStart} -{" "}
+                                      {row.displayEnd})
+                                    </span>
+                                  )}
                                 </div>
-                              )
-                            )}
-                          </div>
-                        ) : (
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            No episodes in this selection.
-                          </div>
-                        )}
+                              ))}
+                              {hasEdits && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="mt-2"
+                                  disabled={
+                                    updatingSelectionId === selection.id ||
+                                    isUpdating
+                                  }
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleSelectionUpdate(
+                                      selection,
+                                      selectionEditedIntervals
+                                    );
+                                  }}
+                                >
+                                  {updatingSelectionId === selection.id
+                                    ? "Updating..."
+                                    : "Update"}
+                                </Button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </Card>
                     );
                   })}
